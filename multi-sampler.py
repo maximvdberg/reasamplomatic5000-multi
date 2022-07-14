@@ -39,11 +39,15 @@ max_recursion_depth = 10 # Max. depth to look for ReaSamplOmatics in send tracks
                          # of the selected track.
 
 # Configuration options - Appearance
-highlight = 1            # Thickness of the highlights. Set to 0 for a "flat" look.
+highlight = 0            # Thickness of the highlights. Set to 0 for a "flat" look.
+				 # Always set to 0 on Windows.
 alpha = 0.7              # Alpha of the track colors.
-                         # Set to 0.2 for a "dark mode"
+                         # 0.2 looks nice with a dark background.
 text_color = 'lightgray' # Text color of the sample ranges.
                          # Change to 'black' when using light colors.
+background = "#202020"   # Background color.
+foreground = "#F0F0F0" 	 # Foreground color.
+				 # Interchange the colors for light theme.
 
 # Configuration options - MIDI
 midi_port_name = "Midi Through" # You can change this to the name of
@@ -507,8 +511,8 @@ def guimain():
 
 
     track_name_text = tk.StringVar()
-    track_name_label = tk.Label(buttons, textvariable=track_name_text)
-    track_name_label.grid(column=0, row=1)
+    track_name_label = tk.Label(buttons, textvariable=track_name_text, anchor='w')
+    track_name_label.grid(column=0, row=1, columnspan=7, sticky='W')
     track_name_text.set("")
 
     # Create the internal level, were we will draw everything
@@ -647,8 +651,9 @@ if __name__ == "__main__":
     setup_midi()
 
     # Create the top level window.
-    top_level_window = tk.Tk(className='Samplomatic5000 multi')
+    top_level_window = tk.Tk(className='samplomatic5000 multi')
     top_level_window.geometry(default_window_size)
+    top_level_window.tk_setPalette(background=background, foreground=foreground)
 
     # Create the virtual pixel
     pixel = tk.PhotoImage(width=1, height=1)
