@@ -34,8 +34,9 @@ small_resize_width = width_per_note / 3 # small_resize_width is the size of the
                                         # when the size is <= 2.
 scroll_speed = 1 # Speed to scroll.
 zoom_speed = 1   # Speed to zoom.
-max_recursion_depth = 5 # Max. depth to look for ReaSamplOmatics in send tracks
-                        # of the selected track.
+default_window_size = '1000x400'
+max_recursion_depth = 10 # Max. depth to look for ReaSamplOmatics in send tracks
+                         # of the selected track.
 
 # Configuration options - Appearance
 highlight = 1            # Thickness of the highlights. Set to 0 for a "flat" look.
@@ -527,6 +528,7 @@ def guimain():
     canvas.bind_all("<r>", lambda e: parse_current())
     canvas.bind_all("<s>", lambda e: separate_samplomatics())
     canvas.bind_all("<a>", lambda e: init())
+    canvas.bind_all("<c>", lambda e, c=canvas: c.xview_moveto(36/128))
 
     # Resizing
     window.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
@@ -549,7 +551,6 @@ def guimain():
     canvas.bind_all("<Control-MouseWheel>", zoom_windows, add=True)
     canvas.bind_all("<Control-Button-4>", lambda e, d=-1: zoom_linux(d), add=True)
     canvas.bind_all("<Control-Button-5>", lambda e, d=1: zoom_linux(d), add=True)
-    canvas.bind_all("<z>", lambda e: zoom(0))
 
     # Zooming (pianoroll)
     zoom_pianoroll_windows = lambda e: zoom_pianoroll(int(-e.delta/abs(e.delta)*zoom_speed))
@@ -565,6 +566,7 @@ def guimain():
 
     # Start the loop
     root.after(500, check_selected)
+    root.after(10, lambda c=canvas: c.xview_moveto(36/128)) # Scroll the view to C2
     root.mainloop()
 
 
@@ -646,7 +648,7 @@ if __name__ == "__main__":
 
     # Create the top level window.
     top_level_window = tk.Tk(className='Samplomatic5000 multi')
-    top_level_window.geometry('1000x400')
+    top_level_window.geometry(default_window_size)
 
     # Create the virtual pixel
     pixel = tk.PhotoImage(width=1, height=1)
