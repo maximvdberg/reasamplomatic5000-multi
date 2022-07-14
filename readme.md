@@ -68,4 +68,4 @@ Reapy cannot set set the sample(s) of ReaSamplOmatic5000, so drag-and-drop direc
 
 ## License
 
-The script is licensed under the GNU GPLv3, see [license](LICENSE.txt).
+The script is licensed under the GNU GPLv3, see [license](LICENSE).
