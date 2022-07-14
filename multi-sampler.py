@@ -526,8 +526,7 @@ def guimain():
     # Button mapping
     canvas.bind_all("<r>", lambda e: parse_current())
     canvas.bind_all("<s>", lambda e: separate_samplomatics())
-
-    canvas.bind_all("<c>", lambda e: print(obey_note_offs.get(), create_bus_on_separate.get(), freeze.get()))
+    canvas.bind_all("<a>", lambda e: init())
 
     # Resizing
     window.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
