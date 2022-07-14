@@ -44,7 +44,7 @@ All actions are done in REAPER, so undo/redo is supported via REAPER itself. (Ju
 
 ### Creating groups
 
-The `separate` button takes all ReaSamplOmatic5000 instances on the current track, and separates them over new tracks. It adds a MIDI-route from the selected track to these tracks. This is useful for individual effects processing (for instance: for the bass drum, the snare, hi-hats, etc.). You can still edit the ranges in the original multisampler window.
+The `separate` button takes all ReaSamplOmatic5000 instances on the current track, and separates them over new tracks. It adds a MIDI-route from the selected track to these tracks. This is useful for individual effects processing (for instance when sampling drums: for the bass drum, the snare, hi-hats, etc.). You can still edit the ranges in the original multisampler window.
 
 You can select any of these tracks and use the multisampler on them individually. This acts essentially as a group, where you can add and tweak additional FX for this set of ReaSamplOmatic5000s as you please. Selecting the original parent track again gives you access to all groups at once.
 
