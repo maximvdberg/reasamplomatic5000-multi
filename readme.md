@@ -16,13 +16,13 @@
 
 ## Dependencies and Installation
 
-You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` can be installed through pip (use `pip install tkinter`).
+You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#Installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` can be installed through pip (use `pip install tkinter`).
 
 For MIDI support, you need `mido` and `rtmidi` as well. All should be available through pip (use `pip install mido rtmidi`).
 
 ## Usage notes
 
-The multisampler only does the note ranges, you need to add the samples, remove ReaSamplOmatic5000 instances, and change any other options inside of REAPER. You can also set the names of the ReaSamplOmatic5000 instances, which will be reflected in the multisampler. You need to hit `refresh` for this to update though.
+The multisampler only does the note ranges, you need to add the samples, remove ReaSamplOmatic5000 instances, and change any other options inside of REAPER. You can also set the names of the ReaSamplOmatic5000 instances, which will be reflected in the multisampler. You need to hit `refresh` for this to update.
 
 The multisampler will show all ReaSamplOmatic5000s from the selected track. Check `freeze` to stay on the selected track, and not follow the selection any more.
 
@@ -34,9 +34,10 @@ All actions are done in REAPER, so undo/redo is supported via REAPER itself. (Ju
  * __Moving__ Move note ranges by clicking and dragging.
  * __Resizing__ Click the range edges and drag to resize them.
  * __Open FX window__ You can click on any range to open up its FX-window.
- * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See (creating groups)[#creating-groups] for more information.
+ * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See [creating groups](#creating-groups) for more information.
  * __Zoom__ Zoom with `ctrl+mousewheel`, or the `+` and `-` buttons. Zoom the piano roll with `alt+mousewheel`.
  * __MIDI__ You can click on the notes on the piano roll to send MIDI data to reaper. Velocity is dependent on the height of your mouse. Read the script for details on how to set it up.
+ * __Obey note-offs__ You can select if you want newly added instances to obey note-offs or not (useful for sampling drums)
  * __Shortcuts__ You can press `r` as a shortcut for `refresh`, `a` to add, and `s` is a shortcut for `separate`.
  * __Defaults__ If you want, you can change some default values at the top of the script (short descriptions are given).
  * __Colors__ The multisampler also uses the track colors. You can set the alpha parameter at the top of the script to change how to colors are used.
