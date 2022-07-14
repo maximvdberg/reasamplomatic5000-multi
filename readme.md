@@ -16,7 +16,7 @@
 
 ## Dependencies and Installation
 
-You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#Installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` can be installed through pip (use `pip install tkinter`).
+You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` can be installed through pip (use `pip install tkinter`).
 
 For MIDI support, you need `mido` and `rtmidi` as well. All should be available through pip (use `pip install mido rtmidi`).
 
