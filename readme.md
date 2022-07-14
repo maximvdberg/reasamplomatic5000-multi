@@ -37,7 +37,7 @@ All actions are done in REAPER, so undo/redo is supported via REAPER itself. (Ju
  * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See [creating groups](#creating-groups) for more information.
  * __Zoom__ Zoom with `ctrl+mousewheel`, or the `+` and `-` buttons. Zoom the piano roll with `alt+mousewheel`.
  * __MIDI__ You can click on the notes on the piano roll to send MIDI data to reaper. Velocity is dependent on the height of your mouse. Read the script for details on how to set it up.
- * __Obey note-offs__ You can select if you want newly added instances to obey note-offs or not (useful for sampling drums)
+ * __Obey note-offs__ You can select whether newly added instances should obey note-offs or not (useful for sampling drums)
  * __Shortcuts__ You can press `r` as a shortcut for `refresh`, `a` to add, and `s` is a shortcut for `separate`.
  * __Defaults__ If you want, you can change some default values at the top of the script (short descriptions are given).
  * __Colors__ The multisampler also uses the track colors. You can set the alpha parameter at the top of the script to change how to colors are used.
