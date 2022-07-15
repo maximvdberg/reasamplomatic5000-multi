@@ -39,15 +39,15 @@ max_recursion_depth = 10 # Max. depth to look for ReaSamplOmatics in send tracks
                          # of the selected track.
 
 # Configuration options - Appearance
-highlight = 0            # Thickness of the highlights. Set to 0 for a "flat" look.
-				 # Always set to 0 on Windows.
+highlight = 0            # Thickness of the highlights. Set to 0 for a "flat" look
+                         # Always set to 0 on Windows.
 alpha = 0.7              # Alpha of the track colors.
                          # 0.2 looks nice with a dark background.
 text_color = 'lightgray' # Text color of the sample ranges.
                          # Change to 'black' when using light colors.
 background = "#202020"   # Background color.
 foreground = "#F0F0F0" 	 # Foreground color.
-				 # Interchange the colors for light theme.
+                         # Interchange the colors for light theme.
 
 # Configuration options - MIDI
 midi_port_name = "Midi Through" # You can change this to the name of
@@ -81,6 +81,7 @@ total_notes = 128
 def rgb(rgb, a = 1):
     return "#%02x%02x%02x" % (int(rgb[0]*a), int(rgb[1]*a), int(rgb[2]*a))
 
+# The main note range class.
 class SamploRange():
     def __init__(self, window, fx, color=(255, 255, 255)):
         self.window = window
@@ -102,6 +103,7 @@ class SamploRange():
         widget.bind("<B1-Motion>", self.mouse)
         widget.bind("<ButtonRelease-1>", self.button_release)
         widget.bind("<Motion>", self.motion)
+        widget.bind('<Double-Button-1>', lambda e: self.show(True))
 
         # Create the background image.
         self.text_hor = None
@@ -118,17 +120,14 @@ class SamploRange():
         self.resize_side = 0
         self.resize_start_left = 0
 
-    def set_height(self, window_height):
-        height = int(window_height - piano_roll_height)
-        self.widget.configure(height=height - 2 * highlight)
-
+    # # # Drawing # # #
     def redraw(self):
-        # Position and sizes
+        # Position and sizes.
         x_pos = int(width_per_note * self.start)
         width = int(width_per_note * (self.end - self.start + 1))
         height = int(window.winfo_height() - piano_roll_height)
 
-        # Drawing
+        # Drawing.
         self.widget.place(x=x_pos, y=0)
         self.widget.configure(width=width - 2 * highlight,
                               height=height - 2 * highlight)
@@ -138,7 +137,7 @@ class SamploRange():
     def draw_name(self):
         offscreen = -50
 
-        # Initialise the text (horizontally)
+        # Initialise the text (horizontally).
         if not self.text_hor:
             global text_color
             self.text_hor = self.widget.create_text(1, 0, text=self.fx.name,
@@ -152,22 +151,39 @@ class SamploRange():
         width = int(width_per_note * (self.end - self.start + 1))
 
         if text_length + 5 > width:
-            # Place text vertically
+            # Place text vertically.
             self.widget.moveto(self.text_hor, 0, offscreen)
             self.widget.moveto(self.text_ver, 0, 2)
         else:
-            # Place text horizontally
+            # Place text horizontally.
             self.widget.moveto(self.text_hor, 3, 0)
             self.widget.moveto(self.text_ver, offscreen, 0)
 
+    def set_height(self, window_height):
+        height = int(window_height - piano_roll_height)
+        self.widget.configure(height=height - 2 * highlight)
 
+    # # # Event Handlers # # #
+    # On (double) click, show ui window.
+    def show(self, exclusive=False):
+        global samplomatics
+
+        if exclusive:
+            for samplorange in samplomatics:
+                if samplorange != self:
+                    samplorange.fx.close_ui()
+
+        self.fx.open_ui()
+
+    # Mouse motion, saves x and y position of the cursor.
     def motion(self, event):
         self.mouse_current_x = event.x
         self.mouse_current_y = event.y
 
+    # On button release, reset moving/resizing parameters, and update
+    # REAPER. Also set this instance to the last touched range.
     def button_release(self, event):
-        self.fx.open_ui()
-        # TODO(?): close others windows in REAPER
+        self.show()
 
         self.in_motion = False
         self.resize_side = 0
@@ -177,7 +193,7 @@ class SamploRange():
         global last_touched
         last_touched = self
 
-
+    # Helper function to get event info.
     def event_info(self, event):
         c = event.widget
         x, y = c.winfo_x(), c.winfo_y()
@@ -186,6 +202,8 @@ class SamploRange():
         x_max, y_max = self.window.winfo_width(), self.window.winfo_height()
         return c, x, y, w, h, x_add, y_add, x_max, y_max
 
+    # Handler for mouse click and drag. Depending on location, calls
+    # resize or move.
     def mouse(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
@@ -210,7 +228,7 @@ class SamploRange():
         else:
             self.move(event)
 
-    # Resize the note range
+    # Resize the note range.
     def resize(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
@@ -233,7 +251,7 @@ class SamploRange():
 
         self.draw_name()
 
-    # Move the note range
+    # Move the note range.
     def move(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
@@ -248,12 +266,16 @@ class SamploRange():
         # Redraw
         c.place(x=self.start * width_per_note)
 
+    # # # REAPER communication # # #
     def update_reaper(self):
         print("update REAPER:", self.start, self.end)
         self.fx.params["Note range start"] = self.start / 127
         self.fx.params["Note range end"] = self.end / 127
 
 
+# # # Setup functions # # #
+
+# Add new ReaSamplOmatic5000 instance.
 def setup(track, note_start = -1, note_end = -1):
     global current_track, samplomatics, window, last_touched
 
@@ -276,6 +298,25 @@ def setup(track, note_start = -1, note_end = -1):
         samplomatics.append(samplorange)
         last_touched = samplorange
 
+# If no track is selected, create a new one. Then add new ReaSamplOmatic5000
+# instances to all selected tracks.
+def init():
+    project = rp.Project()
+
+    # Set all selected tracks. Of none are selected, create a new one.
+    tracks = project.selected_tracks
+    if len(tracks) == 0:
+        tracks = [project.add_track()]
+        tracks[0].name = "Multi-Sampler"
+        tracks[0].select()
+
+    for track in tracks:
+        setup(track)
+
+
+# # # Separate functionality # # #
+
+# Helper function for below.
 def separate_next_samplomatic(track, bus):
     global create_bus_on_separate
     project = rp.Project()
@@ -296,10 +337,11 @@ def separate_next_samplomatic(track, bus):
     return False
 
 
+# Split the ReaSamplOmatic5000 instances over separate tracks.
+# If 'create bus' is ticked, put them in a folder too.
 def separate_samplomatics():
     global current_track, create_bus_on_separate
     project = rp.Project()
-
 
     bus = None
     if create_bus_on_separate.get():
@@ -326,28 +368,15 @@ def separate_samplomatics():
         except:
             print("Install the SWS extension (with Python API) for automatic folder creation")
 
-
-def init():
-    project = rp.Project()
-
-    # Set all selected tracks. Of none are selected, create a new one.
-    tracks = project.selected_tracks
-    if len(tracks) == 0:
-        tracks = [project.add_track()]
-        tracks[0].name = "Multi-Sampler"
-
-    for track in tracks:
-        setup(track)
+    parse(current_track)
 
 
-def close():
-    global root
-    root.destroy()
+# # # Track parsing # # #
 
-
+# Return true if the given fx is a ReaSamplOmatic instance.
+# TODO: make this try/except more efficient
+#       how(?)
 def is_samplomatic(fx):
-    # TODO: make this try/except more efficient
-    #       how(?)
     try:
         fx.params["Note range start"]
         fx.params["Note range end"]
@@ -355,6 +384,8 @@ def is_samplomatic(fx):
     except Exception as e:
         return False
 
+# Recursively parse all ReaSamplOmatic5000 on the given track
+# and all of its recursive MIDI sends.
 def parse(track, recursion_depth=max_recursion_depth):
     global window, samplomatics
 
@@ -387,7 +418,7 @@ def parse(track, recursion_depth=max_recursion_depth):
     if recursion_depth == max_recursion_depth:
         print("Done!")
 
-
+# Call `parse` on the currently selected track.
 def parse_current():
     global current_track, track_name_text
     if current_track:
@@ -396,14 +427,7 @@ def parse_current():
     else:
         track_name_text.set("")
 
-def resize(event, canvas, window_id):
-    global sampomatics, window
-    canvas.itemconfigure(window_id, height=canvas.winfo_height())
-
-    # Resize all notes
-    for samplerange in samplomatics:
-        samplerange.set_height(canvas.winfo_height())
-
+# Check if the selection has changed, and loop.
 def check_selected():
     project = rp.Project()
     tracks = project.selected_tracks
@@ -420,6 +444,11 @@ def check_selected():
             current_track = None
             track_name_text.set("")
 
+            # Remove the previous track info.
+            for r in samplomatics:
+                r.widget.destroy();
+            samplomatics = []
+
 
     # rp.defer(loop)
     # loop()
@@ -427,6 +456,22 @@ def check_selected():
     root.after(500, check_selected)
 
 
+# # # Event handling # # #
+
+# After resizing the window, all note sizes should be updated, which
+# this function does. (The rest is done automatically by tkinter.)
+def resize(event, canvas, window_id):
+    global sampomatics, window
+    canvas.itemconfigure(window_id, height=canvas.winfo_height())
+
+    # Resize all notes
+    for samplerange in samplomatics:
+        samplerange.set_height(canvas.winfo_height())
+
+
+# Zoom the note sizes. Update the piano roll and SamploRanges.
+# Also try to keep the zoom centered.
+# (this does not look very smooth, maybe it can be improved)
 def zoom(zoom):
     global width_per_note
 
@@ -453,6 +498,7 @@ def zoom(zoom):
     canvas.xview_scroll(round(x_pos_after - x_pos_before), "units")
     canvas.configure(xscrollincrement=0)
 
+# Zoom the pianoroll view.
 def zoom_pianoroll(zoom):
     global piano_roll_height, pianoroll_frame, samplomatics
 
@@ -464,6 +510,57 @@ def zoom_pianoroll(zoom):
     for note_widget in pianoroll_frame.winfo_children():
         note_widget.configure(height=piano_roll_height - 2 - 2 * highlight)
 
+
+# # # MIDI routing # # #
+
+# Send the MIDI note on the selected MIDI channel.
+def play_note(note, on, event=None):
+    global midi_available
+    if not midi_available:
+        return
+
+    msg = None
+    if on:
+        msg = mido.Message('note_on', note=note,
+                velocity=int(event.y / piano_roll_height * 128))
+    else:
+        msg = mido.Message('note_off', note=note)
+
+    port.send(msg)
+
+# Setup the MIDI connection.
+def setup_midi():
+    global port, midi_available
+
+    try:
+        import mido
+        midi_available = True
+    except:
+        print("Install mido and rtmidi for MIDI support.")
+        midi_available = False
+        return
+
+    port_names = mido.get_output_names()
+    port_name = ""
+
+    if len(port_names) == 0:
+        print("No MIDI available. Did you install rtmidi?")
+        midi_available = False
+        return
+
+    for name in port_names:
+        if midi_port_name.lower() in name.lower():
+            port_name = name
+            break
+    if not port_name:
+        port_name = port_names[0]
+
+    port = mido.open_output(port_name)
+
+
+# # # GUI setup # # #
+
+# The main GUI construction function.
 def guimain():
     global top_level_window, root, window, canvas, scrollbar, pixel, track_name_text
 
@@ -489,6 +586,7 @@ def guimain():
     btn_zoom_in.grid(column=3, row=0, padx=4, pady=4)
     btn_zoom_out.grid(column=4, row=0, padx=4, pady=4)
 
+    # Create the checkboxes.
     global obey_note_offs, create_bus_on_separate, freeze
     obey_note_offs = tk.IntVar(value=obey_note_offs)
     create_bus_on_separate = tk.IntVar(value=create_bus_on_separate)
@@ -510,9 +608,10 @@ def guimain():
     check_freeze.grid(column=7, row=0, padx=4, pady=4)
 
 
+    # Create the track label
     track_name_text = tk.StringVar()
     track_name_label = tk.Label(buttons, textvariable=track_name_text, anchor='w')
-    track_name_label.grid(column=0, row=1, columnspan=7, sticky='W')
+    track_name_label.grid(column=0, row=1, columnspan=8, sticky='W')
     track_name_text.set("")
 
     # Create the internal level, were we will draw everything
@@ -523,7 +622,7 @@ def guimain():
     window = tk.Frame(canvas)
 
     window_id = canvas.create_window((0, 0), window=window, anchor="nw")
-    canvas.configure(xscrollcommand=scrollbar.set, yscrollcommand=scrollbar.set)
+    canvas['xscrollcommand'] = scrollbar.set
 
     # Create the pianoroll
     gui_pianoroll()
@@ -574,48 +673,7 @@ def guimain():
     root.mainloop()
 
 
-def play_note(note, on, event=None):
-    global midi_available
-    if not midi_available:
-        return
-
-    msg = None
-    if on:
-        msg = mido.Message('note_on', note=note,
-                velocity=int(event.y / piano_roll_height * 128))
-    else:
-        msg = mido.Message('note_off', note=note)
-
-    port.send(msg)
-
-def setup_midi():
-    global port, midi_available
-
-    try:
-        import mido
-        midi_available = True
-    except:
-        print("Install mido and rtmidi for MIDI support.")
-        midi_available = False
-        return
-
-    port_names = mido.get_output_names()
-    port_name = ""
-
-    if len(port_names) == 0:
-        print("No MIDI available. Did you install rtmidi?")
-        midi_available = False
-        return
-
-    for name in port_names:
-        if midi_port_name.lower() in name.lower():
-            port_name = name
-            break
-    if not port_name:
-        port_name = port_names[0]
-
-    port = mido.open_output(port_name)
-
+# Create the pianoroll GUI.
 def gui_pianoroll():
     global pixel, window, pianoroll_frame
 
@@ -646,6 +704,9 @@ def gui_pianoroll():
         note_button.grid(column=note, row=0)
         note_button.bind("<Button-1>", lambda e, i=note: play_note(i, True, e))
 
+
+# # # Main # # #
+
 if __name__ == "__main__":
     # Setup midi
     setup_midi()
@@ -662,3 +723,4 @@ if __name__ == "__main__":
     guimain()
 
     # rp.at_exit(close)
+

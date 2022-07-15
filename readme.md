@@ -16,9 +16,9 @@
 
 ## Dependencies and Installation
 
-You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` can be installed through pip (use `pip install tkinter`).
+You need to install `reapy` and `tkinter` for the program to work. To install `reapy`, see the instructions over [here](https://github.com/RomeoDespres/reapy#installation). Make sure you have Python installed and that it is detected by REAPER. `tkinter` should be installed by default.
 
-For MIDI support, you need `mido` and `rtmidi` as well. All should be available through pip (use `pip install mido rtmidi`).
+For MIDI support, you need `mido` and `python-rtmidi` as well. All should be available through pip (use `pip install mido python-rtmidi`).
 
 ## Usage notes
 
@@ -33,8 +33,8 @@ All actions are done in REAPER, so undo/redo is supported via REAPER itself. (Ju
  * __Adding instances__ The `Add` button adds an instance of ReaSamplOmatic5000 on all selected tracks. If no track is selected, it creates a new track.
  * __Moving__ Move note ranges by clicking and dragging.
  * __Resizing__ Click the range edges and drag to resize them.
- * __Open FX window__ You can click on any range to open up its FX-window.
  * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See [creating groups](#creating-groups) for more information.
+ * __Open FX window__ You can click on any range to open up its FX-window. Double click to also close the windows of all other groups.
  * __Scroll & zoom__ Scroll the view with the mousewheel, or click the middle mouse button and drag. Zoom with `ctrl+mousewheel`, or the `+` and `-` buttons. Zoom the piano roll with `alt+mousewheel`. The window is freely resizable (you can change the default size in the script).
  * __MIDI__ You can click on the notes on the piano roll to send MIDI data to reaper. Velocity is dependent on the height of your mouse. Read the script for details on how to set it up.
  * __Obey note-offs__ You can select whether newly added instances should obey note-offs or not (useful for sampling drums)
