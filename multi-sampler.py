@@ -39,15 +39,16 @@ max_recursion_depth = 10 # Max. depth to look for ReaSamplOmatics in send tracks
                          # of the selected track.
 
 # Configuration options - Appearance
-highlight = 0            # Thickness of the highlights. Set to 0 for a "flat" look
+highlight = 1            # Thickness of the highlights. Set to 0 for a "flat" look
                          # Always set to 0 on Windows.
 alpha = 0.7              # Alpha of the track colors.
                          # 0.2 looks nice with a dark background.
 text_color = 'lightgray' # Text color of the sample ranges.
                          # Change to 'black' when using light colors.
-background = "#202020"   # Background color.
-foreground = "#F0F0F0" 	 # Foreground color.
-                         # Interchange the colors for light theme.
+background_color = "#202020" # Background color.
+foreground_color = "#F0F0F0" # Foreground color.
+                             # Interchange the colors for light theme.
+highlight_color = "#e0e0e0"  # Color of the highlights
 
 # Configuration options - MIDI
 midi_port_name = "Midi Through" # You can change this to the name of
@@ -56,7 +57,6 @@ midi_port_name = "Midi Through" # You can change this to the name of
 # Configuration options - Defaults in REAPER/SamplOmatic5000.
 gain_for_minimum_velocity = 0.03162277489900589 # "Min vol" in REAPER.
                                                 # Necessary for dynamics.
-
 
 
 # Some global variables
@@ -74,6 +74,8 @@ pixel = None
 track_name_text = None
 port = None
 midi_available = False
+render_groups = []
+adjust_for_highlight = True
 
 # Constants
 total_notes = 128
@@ -92,23 +94,28 @@ class SamploRange():
         self.start = round(fx.params["Note range start"] * 127)
         self.end = round(fx.params["Note range end"] * 127)
 
-        # Create the moveable widget
+        # Create the moveable widget.
         global alpha
         font = tkfont.Font(size=8)
-        widget = tk.Canvas(self.window,
-                           highlightthickness=highlight,
+        self.widget = tk.Canvas(self.window,
+                                highlightthickness=highlight,
                            highlightbackground=rgb(color),
                            bg=rgb(color, alpha),
                            bd=0)
-        widget.bind("<B1-Motion>", self.mouse)
-        widget.bind("<ButtonRelease-1>", self.button_release)
-        widget.bind("<Motion>", self.motion)
-        widget.bind('<Double-Button-1>', lambda e: self.show(True))
+        self.widget.bind("<B1-Motion>", self.mouse)
+        self.widget.bind("<ButtonRelease-1>", self.button_release)
+        self.widget.bind("<Motion>", self.motion)
+        self.widget.bind('<Double-Button-1>', lambda e: self.show(True))
 
-        # Create the background image.
+        # Text.
         self.text_hor = None
         self.text_ver = None
-        self.widget = widget
+
+        # Render group information.
+        self.render_group = None
+        self.layer_count = 1
+        self.layer = 0
+
         self.redraw()
 
         self.mouse_start_x = 0
@@ -120,17 +127,29 @@ class SamploRange():
         self.resize_side = 0
         self.resize_start_left = 0
 
-    # # # Drawing # # #
+    # # Drawing # #
     def redraw(self):
         # Position and sizes.
-        x_pos = int(width_per_note * self.start)
         width = int(width_per_note * (self.end - self.start + 1))
-        height = int(window.winfo_height() - piano_roll_height)
+        max_height = int(window.winfo_height() - piano_roll_height)
+        height = max_height // self.layer_count
+
+        x_pos = int(width_per_note * self.start)
+        y_pos = self.layer * height
+
+        # The last layer should be a bit larger, when
+        # `layer_count` does not divide `max_height`.
+        if self.layer == self.layer_count - 1:
+            height += max_height - self.layer_count * height
+
+        global adjust_for_highlight
+        if adjust_for_highlight:
+            width -= 2 * highlight
+            height -= 2 * highlight
 
         # Drawing.
-        self.widget.place(x=x_pos, y=0)
-        self.widget.configure(width=width - 2 * highlight,
-                              height=height - 2 * highlight)
+        self.widget.place(x=x_pos, y=y_pos)
+        self.widget.configure(width=width, height=height)
 
         self.draw_name()
 
@@ -159,11 +178,7 @@ class SamploRange():
             self.widget.moveto(self.text_hor, 3, 0)
             self.widget.moveto(self.text_ver, offscreen, 0)
 
-    def set_height(self, window_height):
-        height = int(window_height - piano_roll_height)
-        self.widget.configure(height=height - 2 * highlight)
-
-    # # # Event Handlers # # #
+    # # Event Handlers # #
     # On (double) click, show ui window.
     def show(self, exclusive=False):
         global samplomatics
@@ -207,6 +222,8 @@ class SamploRange():
     def mouse(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
+        start_old, end_old = (self.start, self.end)
+
         if not self.in_motion:
             self.mouse_start_x = self.mouse_current_x
             self.mouse_start_y = self.mouse_current_y
@@ -228,6 +245,10 @@ class SamploRange():
         else:
             self.move(event)
 
+        global render_groups
+        if (start_old != self.start or end_old != self.end):
+            move_through_groups(render_groups, self)
+
     # Resize the note range.
     def resize(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
@@ -240,7 +261,6 @@ class SamploRange():
         else:
             # Resize to the left
             x_new = event.x + (self.start - self.resize_start_left) * width_per_note
-            print(self.end, self.end - self.resize_start_left, math.floor(x_new / width_per_note))
             start_new = min(self.end - self.resize_start_left, math.floor(x_new / width_per_note))
             self.start = self.resize_start_left + start_new
             c.place(x=self.start * width_per_note)
@@ -266,11 +286,178 @@ class SamploRange():
         # Redraw
         c.place(x=self.start * width_per_note)
 
-    # # # REAPER communication # # #
+    # # REAPER communication # #
     def update_reaper(self):
-        print("update REAPER:", self.start, self.end)
         self.fx.params["Note range start"] = self.start / 127
         self.fx.params["Note range end"] = self.end / 127
+        print(f"Updating REAPER:")
+        print(f"  Set note range of {self.fx.name} to ({self.start}, {self.end})")
+
+
+# # # Layered rendering. # # #
+
+# The group class describes a selection of overlapping SamploRanges.
+# It is used only for the `create_layers` functionality, which
+# describes a way to render the SamploRanges without overlap.
+class SamploGroup():
+    def __init__(self):
+        self.sranges = []
+        self.start = float('inf')
+        self.end = -float('inf')
+        self.layers = None
+
+    def add(self, srange):
+        self.sranges.append(srange)
+        self.start = min(self.start, srange.start)
+        self.end = max(self.end, srange.end)
+
+    def remove(self, srange):
+        try:
+            self.sranges.remove(srange)
+        except:
+            pass
+
+        if len(self.sranges) > 0:
+            self.start = min(x.start for x in self.sranges)
+            self.end = max(x.end for x in self.sranges)
+
+    # Determines valid subgroups in the group, and returns them.
+    # Should always be called after `remove` has been called.
+    def split(self):
+        groups_split = []
+
+        for srange in self.sranges:
+            insert_in_groups(groups_split, srange, False)
+
+        return groups_split
+
+    def merge(self, group):
+        self.sranges += group.sranges
+        self.start = min(self.start, group.start)
+        self.end = max(self.end, group.end)
+
+    def intersect(self, srange):
+        if srange.end < self.start:
+            return False
+        elif self.end < srange.start:
+            return False
+        return True
+
+    def create_layers(self):
+        self.layers = []
+
+        self.sranges.sort(key=lambda x: x.start)
+        group_todo = list(self.sranges)
+
+        # Keep creating ranges until no ranges are left.
+        while group_todo:
+            layer = [group_todo[0]]
+            group_todo = group_todo[1:]
+
+            # Create a layer of non-overlapping (but as close together
+            # as possible) closest ranges. And remove the added ranges
+            # from the todo list.
+            for srange in list(group_todo):
+                if srange.start > layer[-1].end:
+                    layer.append(srange)
+                    group_todo.remove(srange)
+
+            self.layers.append(layer)
+
+    def get_layer(self, srange):
+        for n, layer in enumerate(self.layers):
+            if srange in layer:
+                return n
+        return -1
+
+    def update_srange_layers(self):
+        self.create_layers()
+        for srange in self.sranges:
+            srange.render_group = self
+            srange.layer_count = len(self.layers)
+            srange.layer = self.get_layer(srange)
+            srange.redraw()
+
+
+def insert_in_groups(groups, srange, update_srange=True):
+    intersect = False
+
+    # Try to insert into any of the existing groups.
+    for group in groups:
+        if group.intersect(srange):
+            group.add(srange)
+            intersect = True
+
+            if update_srange:
+                srange.render_group = group
+            break
+
+    # Create new group if necessary.
+    if not intersect:
+        group_new = SamploGroup()
+        group_new.add(srange)
+        groups.append(group_new)
+
+        if update_srange:
+            srange.render_group = group_new
+
+
+# The logic for updating the groups after updating the position
+# of the specified SamploRange. It has the following steps:
+#  (1) First, the range is removed from the current group
+#  (2) This potentially splits the group, which is done in the
+#      first section.
+#  (3) Then the range is reinserted.
+#  (4) Finally, it merges all groups that overlap with the (new)
+#      group of the range
+def move_through_groups(groups, srange):
+    assert srange.render_group is None or srange.render_group in groups
+
+    # Remove from the current group, split the group if necessary.
+    if srange.render_group:
+        srange.render_group.remove(srange)
+
+        if len(srange.render_group.sranges) == 0:
+            # Remove if the group is empty.
+            groups.remove(srange.render_group)
+        else:
+            # Split into new groups if necessary.
+            groups_split = srange.render_group.split()
+            if len(groups_split) > 1:
+                groups.remove(srange.render_group)
+                groups += groups_split
+
+                # Update the layer information in the sranges.
+                for group in groups_split:
+                    group.update_srange_layers()
+            else:
+                srange.render_group.update_srange_layers()
+
+    srange.render_group = None
+
+    # Insert into groups again.
+    if not srange.render_group:
+        insert_in_groups(groups, srange)
+
+    assert srange.render_group != None
+
+    # Merge groups if necessary.
+    for group in list(groups):
+        if group == srange.render_group:
+            continue
+
+        # Merge if the groups overlap.
+        if group.intersect(srange.render_group):
+            group.merge(srange.render_group)
+
+            groups.remove(srange.render_group)
+
+            # Update all references.
+            for s in srange.render_group.sranges:
+                s.render_group = group
+
+    # Update the layer information in the sranges.
+    srange.render_group.update_srange_layers()
 
 
 # # # Setup functions # # #
@@ -297,6 +484,9 @@ def setup(track, note_start = -1, note_end = -1):
         samplorange = SamploRange(window, samplomatic, track.color)
         samplomatics.append(samplorange)
         last_touched = samplorange
+
+        global render_groups
+        move_through_groups(render_groups, samplorange)
 
 # If no track is selected, create a new one. Then add new ReaSamplOmatic5000
 # instances to all selected tracks.
@@ -339,9 +529,18 @@ def separate_next_samplomatic(track, bus):
 
 # Split the ReaSamplOmatic5000 instances over separate tracks.
 # If 'create bus' is ticked, put them in a folder too.
+def separate():
+    global root, current_track
+    if not current_track:
+        return
+
+    track_name_text.set("   separating...   ")
+    root.after(100, separate_samplomatics)
+
 def separate_samplomatics():
     global current_track, create_bus_on_separate
     project = rp.Project()
+
 
     bus = None
     if create_bus_on_separate.get():
@@ -366,9 +565,9 @@ def separate_samplomatics():
             project.unselect_all_tracks()
             current_track.select()
         except:
-            print("Install the SWS extension (with Python API) for automatic folder creation")
+            print("Install the SWS extension for automatic folder creation")
 
-    parse(current_track)
+    parse_current()
 
 
 # # # Track parsing # # #
@@ -387,7 +586,7 @@ def is_samplomatic(fx):
 # Recursively parse all ReaSamplOmatic5000 on the given track
 # and all of its recursive MIDI sends.
 def parse(track, recursion_depth=max_recursion_depth):
-    global window, samplomatics
+    global window, samplomatics, render_groups
 
     if recursion_depth == max_recursion_depth:
         print("Start parsing track...")
@@ -396,6 +595,7 @@ def parse(track, recursion_depth=max_recursion_depth):
         for r in samplomatics:
             r.widget.destroy();
         samplomatics = []
+        render_groups = []
     if recursion_depth == 0:
         return
 
@@ -413,19 +613,26 @@ def parse(track, recursion_depth=max_recursion_depth):
         print("    Parsing FX:", fx.name)
 
         if is_samplomatic(fx):
-            samplomatics.append(SamploRange(window, fx, track.color))
+            srange = SamploRange(window, fx, track.color)
+            samplomatics.append(srange)
+
+            # Add to the render groups.
+            move_through_groups(render_groups, srange)
 
     if recursion_depth == max_recursion_depth:
         print("Done!")
 
+
 # Call `parse` on the currently selected track.
 def parse_current():
-    global current_track, track_name_text
+    global root, current_track, track_name_text
     if current_track:
-        track_name_text.set(str(current_track.name).strip())
-        parse(current_track)
+        track_name_text.set("   parsing tracks...   ")
+        root.after(100, lambda: parse(current_track))
+        root.after(200, lambda: track_name_text.set(current_track.name))
     else:
         track_name_text.set("")
+
 
 # Check if the selection has changed, and loop.
 def check_selected():
@@ -438,7 +645,7 @@ def check_selected():
             current_track = tracks[0]
             track_name_text.set(str(current_track.name).strip())
 
-            parse(current_track)
+            parse_current()
 
         if len(tracks) == 0:
             current_track = None
@@ -448,12 +655,13 @@ def check_selected():
             for r in samplomatics:
                 r.widget.destroy();
             samplomatics = []
+            render_groups = []
 
+    global root
+    root.after(500, check_selected)
 
     # rp.defer(loop)
     # loop()
-    global root
-    root.after(500, check_selected)
 
 
 # # # Event handling # # #
@@ -466,7 +674,7 @@ def resize(event, canvas, window_id):
 
     # Resize all notes
     for samplerange in samplomatics:
-        samplerange.set_height(canvas.winfo_height())
+        samplerange.redraw()
 
 
 # Zoom the note sizes. Update the piano roll and SamploRanges.
@@ -562,7 +770,7 @@ def setup_midi():
 
 # The main GUI construction function.
 def guimain():
-    global top_level_window, root, window, canvas, scrollbar, pixel, track_name_text
+    global top_level_window, root, window, canvas, scrollbar, pixel, track_name_text, fullscreen
 
     # Create the root window
     root = tk.Frame(top_level_window)
@@ -578,7 +786,7 @@ def guimain():
     btn_refresh = tk.Button(buttons, text="Refresh", width=6, height=1, command=parse_current)
     btn_refresh.grid(column=1, row=0, padx=4, pady=4)
 
-    btn_refresh = tk.Button(buttons, text="Separate", width=6, height=1, command=separate_samplomatics)
+    btn_refresh = tk.Button(buttons, text="Separate", width=6, height=1, command=separate)
     btn_refresh.grid(column=2, row=0, padx=4, pady=4)
 
     btn_zoom_in  = tk.Button(buttons, text="+", width=1, height=1, command=lambda: zoom(1))
@@ -629,13 +837,13 @@ def guimain():
 
     # Button mapping
     canvas.bind_all("<r>", lambda e: parse_current())
-    canvas.bind_all("<s>", lambda e: separate_samplomatics())
+    canvas.bind_all("<s>", lambda e: separate())
     canvas.bind_all("<a>", lambda e: init())
     canvas.bind_all("<c>", lambda e, c=canvas: c.xview_moveto(36/128))
 
     # Resizing
     window.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
-    canvas.bind("<Configure>", lambda e, c=canvas, fid=window_id: resize(e, c, fid))
+    top_level_window.bind("<Configure>", lambda e, c=canvas, fid=window_id: resize(e, c, fid))
 
     # Scrolling with middle mouse button (doesn't seem to work very well though)
     window.bind_all("<ButtonPress-2>", lambda e, c=canvas: c.scan_mark(e.x, e.y))
@@ -714,7 +922,9 @@ if __name__ == "__main__":
     # Create the top level window.
     top_level_window = tk.Tk(className='samplomatic5000 multi')
     top_level_window.geometry(default_window_size)
-    top_level_window.tk_setPalette(background=background, foreground=foreground)
+    top_level_window.tk_setPalette(background=background_color,
+                                   foreground=foreground_color,
+                                   highlightBackground=highlight_color)
 
     # Create the virtual pixel
     pixel = tk.PhotoImage(width=1, height=1)

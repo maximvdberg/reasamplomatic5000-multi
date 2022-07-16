@@ -30,16 +30,19 @@ All actions are done in REAPER, so undo/redo is supported via REAPER itself. (Ju
 
 ### Feature list
 
+A short list of features and usage notes:
+
  * __Adding instances__ The `Add` button adds an instance of ReaSamplOmatic5000 on all selected tracks. If no track is selected, it creates a new track.
  * __Moving__ Move note ranges by clicking and dragging.
  * __Resizing__ Click the range edges and drag to resize them.
+ * __Layering__ The note ranges align vertically such that they don't overlap. This allows for easy layering of multiple samples.
  * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See [creating groups](#creating-groups) for more information.
  * __Open FX window__ You can click on any range to open up its FX-window. Double click to also close the windows of all other groups.
- * __Scroll & zoom__ Scroll the view with the mousewheel, or click the middle mouse button and drag. Zoom with `ctrl+mousewheel`, or the `+` and `-` buttons. Zoom the piano roll with `alt+mousewheel`. The window is freely resizable (you can change the default size in the script).
+ * __Scroll & zoom__ Scroll the view with the mouse wheel, or click the middle mouse button and drag. Zoom with `ctrl+mousewheel`, or the `+` and `-` buttons. Zoom the piano roll with `alt+mousewheel`. The window is freely resizable (you can change the default size in the script).
  * __MIDI__ You can click on the notes on the piano roll to send MIDI data to reaper. Velocity is dependent on the height of your mouse. Read the script for details on how to set it up.
  * __Obey note-offs__ You can select whether newly added instances should obey note-offs or not (useful for sampling drums)
  * __Shortcuts__ You can press `r` as a shortcut for `Refresh`, `a` for `Add`, and `s` for `Separate`. Press `c` to scroll the view to C2.
- * __Defaults__ If you want, you can change some default values at the top of the script (short descriptions are given).
+ * __Defaults__ If you want, you can change some default values at the top of the script (short descriptions are given). You can change behaviour as well as appearance.
  * __Colors__ The multisampler also uses the track colors. You can set the alpha parameter at the top of the script to change how to colors are used.
 
 ### Creating groups
@@ -51,7 +54,6 @@ You can select any of these tracks and use the multisampler on them individually
 When the `create bus` option is ticked, an additional bus track is created. You can make a folder of the created track with this as the parent track to mix everything together. If you have the SWS extension installed, this is done automatically!
 
 ## To-do
- - [ ] Let overlap between sample ranges behave nicely. For instance: separate identical ranges to the same track, render on top of each other.
  - [ ] Selecting multiple ranges, moving them simultaneously. Sync selection with REAPER to allow copy/paste as well.
  - [ ] A way to save user settings without requiring them to edit the script.
  - [ ] Reapy can check for changes in track names/colors/etc., which would eliminate the need to hit `refresh` manually. (Although since `refresh` is very slow, this might actually be undesirable behaviour.)
