@@ -19,6 +19,7 @@ import tkinter.font as tkfont
 import mido
 
 import threading
+import random
 import math
 import sys
 
@@ -29,9 +30,10 @@ obey_note_offs = 0         # Value to set "Obey note-offs" in ReaSamplOmatic5000
 create_bus_on_separate = 1 # Wether to create a bus channel on separate.
 
 # Configuration options - Functionality
-small_resize_width = width_per_note / 3 # small_resize_width is the size of the
-                                        # handles used for resizing the ranges,
-                                        # when the size is <= 2.
+resize_handle_width = 15        # The size of the resize handles in pixels.
+resize_handle_ratio_small = 1/3 # When the range size is smaller than trice
+                                # the handle size, use this ratio instead.
+
 scroll_speed = 1 # Speed to scroll.
 zoom_speed = 1   # Speed to zoom.
 default_window_size = '1000x400'
@@ -39,12 +41,13 @@ max_recursion_depth = 10 # Max. depth to look for ReaSamplOmatics in send tracks
                          # of the selected track.
 
 # Configuration options - Appearance
-highlight = 1            # Thickness of the highlights. Set to 0 for a "flat" look
-                         # Always set to 0 on Windows.
+highlight = 1            # Thickness of the highlights. Set to 0 for a "flat" look.
 alpha = 0.7              # Alpha of the track colors.
                          # 0.2 looks nice with a dark background.
-text_color = 'lightgray' # Text color of the sample ranges.
-                         # Change to 'black' when using light colors.
+alpha_selected = 1       # Alpha of track when it is selected.
+                         # Make sure it is different from alpha
+text_color = '#F0F0F0'          # Text color of the sample ranges.
+text_color_selected = '#404040' # Text color when the sample range is selected.
 background_color = "#202020" # Background color.
 foreground_color = "#F0F0F0" # Foreground color.
                              # Interchange the colors for light theme.
@@ -97,6 +100,7 @@ class SamploRange():
         # Create the moveable widget.
         global alpha
         font = tkfont.Font(size=8)
+        self.color = color
         self.widget = tk.Canvas(self.window,
                                 highlightthickness=highlight,
                            highlightbackground=rgb(color),
@@ -106,6 +110,12 @@ class SamploRange():
         self.widget.bind("<ButtonRelease-1>", self.button_release)
         self.widget.bind("<Motion>", self.motion)
         self.widget.bind('<Double-Button-1>', lambda e: self.show(True))
+        self.widget.bind('<Button-1>', lambda e: self.select())
+        self.widget.bind('<Control-1>', lambda e: self.select(True))
+
+        # Selection.
+        self.selected = False
+        self.select_multiple = False
 
         # Text.
         self.text_hor = None
@@ -125,7 +135,8 @@ class SamploRange():
 
         self.in_motion = False
         self.resize_side = 0
-        self.resize_start_left = 0
+        self.resize_start = 0
+        self.resize_end = 0
 
     # # Drawing # #
     def redraw(self):
@@ -152,6 +163,19 @@ class SamploRange():
         self.widget.configure(width=width, height=height)
 
         self.draw_name()
+        self.draw_selection()
+
+    def draw_selection(self):
+        if self.selected:
+            self.widget.configure(highlightbackground=rgb(self.color, 0.5),
+                                  bg=rgb(self.color, alpha_selected))
+            self.widget.itemconfig(self.text_hor, fill=text_color_selected)
+            self.widget.itemconfig(self.text_ver, fill=text_color_selected)
+        else:
+            self.widget.configure(highlightbackground=rgb(self.color),
+                                  bg=rgb(self.color, alpha))
+            self.widget.itemconfig(self.text_hor, fill=text_color)
+            self.widget.itemconfig(self.text_ver, fill=text_color)
 
     def draw_name(self):
         offscreen = -50
@@ -179,6 +203,7 @@ class SamploRange():
             self.widget.moveto(self.text_ver, offscreen, 0)
 
     # # Event Handlers # #
+
     # On (double) click, show ui window.
     def show(self, exclusive=False):
         global samplomatics
@@ -189,6 +214,22 @@ class SamploRange():
                     samplorange.fx.close_ui()
 
         self.fx.open_ui()
+
+    def select(self, keep_selection=False):
+        if not self.select_multiple and not keep_selection:
+            deselect_all()
+        if keep_selection:
+            global last_touched
+            if last_touched:
+                last_touched.select_multiple = True
+            self.select_multiple = True
+
+        if keep_selection and self.selected:
+            self.selected = False
+        else:
+            self.selected = True
+
+        self.redraw()
 
     # Mouse motion, saves x and y position of the cursor.
     def motion(self, event):
@@ -203,7 +244,6 @@ class SamploRange():
         self.in_motion = False
         self.resize_side = 0
         self.update_reaper()
-        self.resize_start_left = 0
 
         global last_touched
         last_touched = self
@@ -222,18 +262,27 @@ class SamploRange():
     def mouse(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
-        start_old, end_old = (self.start, self.end)
-
         if not self.in_motion:
+            self.in_motion = True
             self.mouse_start_x = self.mouse_current_x
             self.mouse_start_y = self.mouse_current_y
-            self.resize_start_left = self.start
-            self.in_motion = True
+            self.resize_start = self.start
+            self.resize_end = self.end
 
-            # Check if resizing
-            resize_width = width_per_note
-            if self.end - self.start <= 2:
-                resize_width = small_resize_width
+            # We need to set the resize begin values for all
+            # sample ranges to make resizing with multiple
+            # selections work properly.
+            global samplomatics
+            for srange in samplomatics:
+                srange.resize_start = srange.start
+                srange.resize_end = srange.end
+
+            # Check if we are grabbing the resize handles.
+            resize_width = resize_handle_width
+
+            # For small note ranges, use a relative size.
+            if w < 3 * resize_handle_width:
+                resize_width = resize_handle_ratio_small * w
 
             if self.mouse_start_x >= w - resize_width:
                 self.resize_side = 1
@@ -245,25 +294,44 @@ class SamploRange():
         else:
             self.move(event)
 
-        global render_groups
-        if (start_old != self.start or end_old != self.end):
-            move_through_groups(render_groups, self)
+    # # Resizing and moving # #
 
-    # Resize the note range.
+    # Resize the note range, based on TKinter mouse event.
     def resize(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
-        if (self.resize_side > 0):
+        resize_amount = 0
+
+        if self.resize_side > 0:
             # Resize to the right
             x_new = event.x
-            end_new = max(0, math.floor(x_new / width_per_note))
-            self.end = self.start + end_new
+            end_new = self.start + max(0, math.floor(x_new / width_per_note))
+            resize_amount = end_new - self.resize_end
         else:
             # Resize to the left
-            x_new = event.x + (self.start - self.resize_start_left) * width_per_note
-            start_new = min(self.end - self.resize_start_left, math.floor(x_new / width_per_note))
-            self.start = self.resize_start_left + start_new
-            c.place(x=self.start * width_per_note)
+            x_new = event.x + (self.start - self.resize_start) * width_per_note
+            start_new = min(self.end - self.resize_start,
+                            math.floor(x_new / width_per_note))
+            resize_amount = start_new
+
+        self.resize_value(self.resize_side, resize_amount)
+
+        # Forward the changes to the other instances of the selected group.
+        if self.select_multiple:
+            global samplomatics
+            for srange in samplomatics:
+                if srange != self and srange.selected:
+                    srange.resize_value(self.resize_side, resize_amount)
+
+
+    # Move based on given amount.
+    def resize_value(self, side, amount):
+        # Move the block if resizing on the left.
+        if side > 0:
+            self.end = max(self.start, self.resize_end + amount)
+        else:
+            self.start = min(self.end, self.resize_start + amount)
+            self.widget.place(x=self.start * width_per_note)
 
         # Redraw the size.
         self.width = int(width_per_note * (self.end - self.start + 1))
@@ -271,20 +339,40 @@ class SamploRange():
 
         self.draw_name()
 
-    # Move the note range.
+        global render_groups
+        if amount:
+            move_through_groups(render_groups, self)
+
+
+    # Move the note range, based on TKinter mouse event.
     def move(self, event):
         c, x, y, w, h, x_add, y_add, x_max, y_max = self.event_info(event)
 
         x_new = x - self.mouse_current_x + event.x
         note_set = round(x_new / width_per_note)
+        note_move = note_set - self.start
+        self.move_value(note_move)
 
+        # Forward the changes to the other instances of the selected group.
+        if self.select_multiple:
+            global samplomatics
+            for srange in samplomatics:
+                if srange != self and srange.selected:
+                    srange.move_value(note_move)
+
+    # Move based on given amount.
+    def move_value(self, amount):
         # Determine the new note range
         note_diff = self.end - self.start
-        self.start = note_set
-        self.end = note_set + note_diff
+        self.start += amount
+        self.end = self.start + note_diff
 
         # Redraw
-        c.place(x=self.start * width_per_note)
+        self.widget.place(x=self.start * width_per_note)
+
+        global render_groups
+        if amount:
+            move_through_groups(render_groups, self)
 
     # # REAPER communication # #
     def update_reaper(self):
@@ -467,11 +555,11 @@ def setup(track, note_start = -1, note_end = -1):
     global current_track, samplomatics, window, last_touched
 
     # The default note ranges.
-    if note_start == -1 and last_touched:
+    if note_start < 0 and last_touched:
         note_start = last_touched.end + 1
-    elif note_start == -1:
+    if note_start < 0:
         note_start = 60
-    if note_end == -1:
+    if note_end < 0:
         note_end = note_start
 
     samplomatic = track.add_fx("ReaSamplomatic5000")
@@ -573,8 +661,7 @@ def separate_samplomatics():
 # # # Track parsing # # #
 
 # Return true if the given fx is a ReaSamplOmatic instance.
-# TODO: make this try/except more efficient
-#       how(?)
+# TODO: make this try/except more efficient (how(?))
 def is_samplomatic(fx):
     try:
         fx.params["Note range start"]
@@ -664,7 +751,7 @@ def check_selected():
     # loop()
 
 
-# # # Event handling # # #
+# # # Event handling - window resize and zoom # # #
 
 # After resizing the window, all note sizes should be updated, which
 # this function does. (The rest is done automatically by tkinter.)
@@ -710,7 +797,7 @@ def zoom(zoom):
 def zoom_pianoroll(zoom):
     global piano_roll_height, pianoroll_frame, samplomatics
 
-    piano_roll_height += zoom
+    piano_roll_height += 2 * zoom
     piano_roll_height = max(5, piano_roll_height)
 
     for samplorange in samplomatics:
@@ -718,6 +805,76 @@ def zoom_pianoroll(zoom):
     for note_widget in pianoroll_frame.winfo_children():
         note_widget.configure(height=piano_roll_height - 2 - 2 * highlight)
 
+
+# # # Copy, paste and delete # # #
+
+clipboard = []
+def copy():
+    global samplomatics, clipboard
+    clipboard = [srange for srange in samplomatics if srange.selected]
+
+def paste():
+    global clipboard, window, render_groups
+    deselect_all()
+
+    for srange in clipboard:
+        try:
+            # Paste in REAPER
+            track = srange.fx.parent
+            fx_index = len(track.fxs)
+            srange.fx.copy_to_track(track, index=fx_index)
+
+            # Add the sample range
+            srange = SamploRange(window, track.fxs[fx_index], track.color)
+            samplomatics.append(srange)
+
+            # Add to the render groups.
+            move_through_groups(render_groups, srange)
+
+            # Select the new items
+            srange.select(len(clipboard) > 1)
+        except:
+            print(f"FX {srange.fx.name} on clipboard was removed, skipping...")
+
+
+def delete():
+    global samplomatics, render_groups
+    for srange in list(samplomatics):
+        if srange.selected:
+            try:
+                track = srange.fx.parent
+                fx_index = srange.fx.index
+
+                # Delete in REAPER.
+                srange.fx.delete()
+
+                # Make sure the other sample ranges have the
+                # correct FX indices.
+                for s in samplomatics:
+                    if s.fx.parent == track:
+                        if s.fx.index > fx_index:
+                            s.fx = track.fxs[s.fx.index-1]
+
+                # Delete in the groups.
+                srange.end = -100
+                srange.start = -100
+                move_through_groups(render_groups, srange)
+                render_groups.remove(srange.render_group)
+
+                # Delete in tkinter and the samplomatics list
+                srange.widget.destroy()
+                samplomatics.remove(srange)
+            except:
+                print(f"Could not delete FX {srange.fx.name}")
+
+# Deselects all sampleranges.
+def deselect_all(exclude=None):
+    global samplomatics
+    for srange in samplomatics:
+        if srange != exclude:
+            srange.selected = False
+            srange.select_multiple = False
+            srange.draw_selection()
 
 # # # MIDI routing # # #
 
@@ -839,7 +996,17 @@ def guimain():
     canvas.bind_all("<r>", lambda e: parse_current())
     canvas.bind_all("<s>", lambda e: separate())
     canvas.bind_all("<a>", lambda e: init())
-    canvas.bind_all("<c>", lambda e, c=canvas: c.xview_moveto(36/128))
+    canvas.bind_all("<z>", lambda e, c=canvas: c.xview_moveto(36/128))
+    window.bind("<Button-1>", lambda e: deselect_all())
+
+    # Copy, paste and delete functionality
+    # (You can add other keybinds if you want here).
+    canvas.bind_all("<Control-c>", lambda e: copy())
+    canvas.bind_all("<y>",         lambda e: copy())
+    canvas.bind_all("<Control-v>", lambda e: paste())
+    canvas.bind_all("<p>",         lambda e: paste())
+    canvas.bind_all("<Delete>",    lambda e: delete())
+    canvas.bind_all("<d>",         lambda e: delete())
 
     # Resizing
     window.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
@@ -860,15 +1027,15 @@ def guimain():
     zoom_windows = lambda e: zoom(int(-e.delta/abs(e.delta)*zoom_speed))
     zoom_linux = lambda direction: zoom(direction*zoom_speed)
     canvas.bind_all("<Control-MouseWheel>", zoom_windows, add=True)
-    canvas.bind_all("<Control-Button-4>", lambda e, d=-1: zoom_linux(d), add=True)
-    canvas.bind_all("<Control-Button-5>", lambda e, d=1: zoom_linux(d), add=True)
+    canvas.bind_all("<Control-Button-4>", lambda e, d=1: zoom_linux(d), add=True)
+    canvas.bind_all("<Control-Button-5>", lambda e, d=-1: zoom_linux(d), add=True)
 
     # Zooming (pianoroll)
     zoom_pianoroll_windows = lambda e: zoom_pianoroll(int(-e.delta/abs(e.delta)*zoom_speed))
     zoom_pianoroll_linux = lambda direction: zoom_pianoroll(direction*zoom_speed)
     canvas.bind_all("<Alt-MouseWheel>", zoom_pianoroll_windows, add=True)
-    canvas.bind_all("<Alt-Button-4>", lambda e, d=-1: zoom_pianoroll_linux(d), add=True)
-    canvas.bind_all("<Alt-Button-5>", lambda e, d=1: zoom_pianoroll_linux(d), add=True)
+    canvas.bind_all("<Alt-Button-4>", lambda e, d=1: zoom_pianoroll_linux(d), add=True)
+    canvas.bind_all("<Alt-Button-5>", lambda e, d=-1: zoom_pianoroll_linux(d), add=True)
 
     # Packing
     container.pack(side="bottom", fill="both", expand=True)
@@ -916,6 +1083,11 @@ def gui_pianoroll():
 # # # Main # # #
 
 if __name__ == "__main__":
+    # Check system.
+    if sys.platform.startswith('win32'):
+        # TODO: check other platforms which also need this.
+        adjust_for_highlight = False
+
     # Setup midi
     setup_midi()
 

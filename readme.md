@@ -35,6 +35,8 @@ A short list of features and usage notes:
  * __Adding instances__ The `Add` button adds an instance of ReaSamplOmatic5000 on all selected tracks. If no track is selected, it creates a new track.
  * __Moving__ Move note ranges by clicking and dragging.
  * __Resizing__ Click the range edges and drag to resize them.
+ * __Selecting__ You can select and edit multiple ranges by holding `ctrl` and clicking, or by selecting multiple ranges with the right mouse button.
+ * __Copy/paste/delete__ Press `ctrl+c` and `ctrl+v` for copy and paste respectively.  Press `delete` or `d` to delete the selection.
  * __Layering__ The note ranges align vertically such that they don't overlap. This allows for easy layering of multiple samples.
  * __Groups__ The multi-sampler integrates with MIDI routing in REAPER. See [creating groups](#creating-groups) for more information.
  * __Open FX window__ You can click on any range to open up its FX-window. Double click to also close the windows of all other groups.
@@ -54,7 +56,6 @@ You can select any of these tracks and use the multisampler on them individually
 When the `create bus` option is ticked, an additional bus track is created. You can make a folder of the created track with this as the parent track to mix everything together. If you have the SWS extension installed, this is done automatically!
 
 ## To-do
- - [ ] Selecting multiple ranges, moving them simultaneously. Sync selection with REAPER to allow copy/paste as well.
  - [ ] A way to save user settings without requiring them to edit the script.
  - [ ] Reapy can check for changes in track names/colors/etc., which would eliminate the need to hit `refresh` manually. (Although since `refresh` is very slow, this might actually be undesirable behaviour.)
 
